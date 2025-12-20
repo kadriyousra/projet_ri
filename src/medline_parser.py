@@ -1,13 +1,4 @@
-"""
-MEDLINE Dataset Parser
-======================
-Ce module contient les fonctions pour parser les fichiers MEDLINE :
-- MED.ALL : Documents médicaux
-- MED.QRY : Requêtes
-- MED.REL : Jugements de pertinence
 
-
-"""
 
 import re
 from typing import List, Dict, Tuple
@@ -363,3 +354,4 @@ if __name__ == "__main__":
     print("✅ Parsing terminé avec succès!")
     
    
+
