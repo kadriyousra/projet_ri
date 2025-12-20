@@ -1,4 +1,5 @@
 
+
 import os
 import nltk
 from nltk.tokenize import RegexpTokenizer
@@ -14,7 +15,6 @@ class MEDLINEPreprocessor:
     """Classe pour le preprocessing des documents et requêtes MEDLINE"""
     
     def __init__(self):
-        """Initialise le preprocessor avec les outils nécessaires"""
         # Tokenizer - MÊME REGEX que lab1.py
         self.tokenizer = RegexpTokenizer(
             r'(?:[A-Za-z]\.)+|'                           # Abbreviations like D.Z.A
@@ -173,7 +173,6 @@ class MEDLINEPreprocessor:
     def calculate_term_frequencies(self, verbose: bool = True):
         """
         Calcule les fréquences des termes pour chaque document
-       
         
         Args:
             verbose (bool): Afficher les informations
@@ -319,8 +318,7 @@ class MEDLINEPreprocessor:
     
     def save_document_term_matrix(self, output_path: str, verbose: bool = True):
         """
-        Sauvegarde la Document-Term Matrix: <Document> <Term> <Frequency> <Weight>
-       
+        Sauvegarde la Document-Term Matrix: <Document> <Term> <Frequency>
         
         Args:
             output_path (str): Chemin du fichier de sortie
@@ -333,8 +331,7 @@ class MEDLINEPreprocessor:
                 # Sort terms alphabetically for each document
                 for term in sorted(self.doc_term_freqs[doc_id].keys()):
                     freq = self.doc_term_freqs[doc_id][term]
-                    weight = self.tf_idf_weights[doc_id][term]
-                    f.write(f"{doc_id} {term} {freq} {weight:.6f}\n")
+                    f.write(f"{doc_id} {term} {freq}\n")
         
         if verbose:
             print(f"\n✓ Document-Term Matrix créée: {output_path}")
@@ -352,7 +349,7 @@ class MEDLINEPreprocessor:
     def save_inverted_index(self, output_path: str, verbose: bool = True):
         """
         Sauvegarde l'Inverted Index: <Term> <Document> <Frequency> <Weight>
-        Format pour LAB 5 - EXERCISE 2 de lab1.py
+       
         
         Args:
             output_path (str): Chemin du fichier de sortie
@@ -360,7 +357,7 @@ class MEDLINEPreprocessor:
         """
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        # Build inverted index structure
+        # Build inverted index structure 
         inverted_index = defaultdict(list)
         for doc_id in self.doc_term_freqs.keys():
             for term in self.doc_term_freqs[doc_id].keys():
@@ -423,7 +420,7 @@ if __name__ == "__main__":
     
     print("🚀 MEDLINE PREPROCESSING - Exemple d'utilisation\n")
     
-    # Chemins (à adapter) - Utiliser raw strings pour Windows
+    # Chemins 
     MED_ALL_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.ALL"
     MED_QRY_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.QRY"
     OUTPUT_DIR = r"C:\Users\pc\Desktop\RI_Project\output"
@@ -442,12 +439,12 @@ if __name__ == "__main__":
     # Preprocessing des requêtes
     preprocessor.preprocess_queries(queries, verbose=True)
     
-    # Calculs 
+    # Calculs - MÊME ORDRE que lab1.py
     preprocessor.calculate_term_frequencies(verbose=True)
     preprocessor.calculate_document_frequency(verbose=True)
     preprocessor.calculate_tf_idf(verbose=True)
     
-    # Build: Document-Term Matrix et Inverted Index 
+    # Build: Document-Term Matrix et Inverted Index (LAB 5 requirements)
     print("\n" + "=" * 80)
     print("BUILD INDEXES WITH FREQUENCY AND WEIGHT")
     print("=" * 80)
