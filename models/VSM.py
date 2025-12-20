@@ -1,11 +1,12 @@
 import numpy as np
 from collections import defaultdict
 import os
+import sys
 from typing import List, Dict, Tuple
 
 
 class VSMModel:
-    
+    """Vector Space Model (VSM) avec similarité cosinus"""
     
     def __init__(self):
         # Vocabulaire et documents
@@ -20,7 +21,7 @@ class VSMModel:
     
     
     def load_inverted_index(self, filepath: str, verbose: bool = True):
-       
+        """Charge l'inverted index et construit la matrice TF-IDF"""
         if verbose:
             print("\n" + "="*80)
             print("CHARGEMENT DE L'INVERTED INDEX")
@@ -41,7 +42,7 @@ class VSMModel:
                 parts = line.split()
                 if len(parts) >= 4:
                     term = parts[0]
-                    doc_id = int(parts[1])  # Convertir en int pour tri
+                    doc_id = int(parts[1])
                     weight = float(parts[3])  # TF-IDF weight
                     
                     term_doc_weights[term][doc_id] = weight
@@ -82,7 +83,7 @@ class VSMModel:
     
     
     def create_query_vector(self, query_terms: List[str]) -> np.ndarray:
-        
+        """Crée le vecteur de requête (pondération binaire)"""
         # Créer le vecteur de requête (présence binaire)
         query_vector = np.zeros(len(self.vocabulary), dtype=np.float32)
         
@@ -100,7 +101,7 @@ class VSMModel:
     
     
     def compute_cosine_similarity(self, query_vector: np.ndarray) -> np.ndarray:
-       
+        """Calcule la similarité cosinus entre la requête et tous les documents"""
         # Produit scalaire query · documents
         dot_products = query_vector @ self.doc_vectors  # (N,)
         
@@ -122,25 +123,35 @@ class VSMModel:
     
     
     def rank_documents(self, query_terms: List[str], top_k: int = None) -> List[Tuple[int, float]]:
+        """
+        Classe tous les documents pour une requête
         
+        Args:
+            query_terms: Liste des termes de la requête
+            top_k: Si spécifié, limite le nombre de résultats (pour affichage)
+                   Si None, retourne TOUS les documents (requis pour évaluation)
+        
+        Returns:
+            Liste de tuples (doc_id, cosine_similarity) triée par score décroissant
+        """
         # Créer le vecteur de requête
         query_vector = self.create_query_vector(query_terms)
         
         if query_vector is None:
-            # Aucun terme trouvé
-            return []
+            # Aucun terme trouvé, retourner tous les docs avec score 0
+            return [(doc_id, 0.0) for doc_id in self.doc_ids]
         
         # Calculer les similarités cosinus
         similarities = self.compute_cosine_similarity(query_vector)
         
         # Créer la liste (doc_id, score)
-        doc_scores = [(self.doc_ids[i], similarities[i]) 
+        doc_scores = [(self.doc_ids[i], float(similarities[i])) 
                      for i in range(len(self.doc_ids))]
         
         # Trier par score décroissant
         doc_scores.sort(key=lambda x: x[1], reverse=True)
         
-        # Retourner top_k si spécifié
+        # Retourner top_k si spécifié (pour affichage uniquement)
         if top_k is not None:
             doc_scores = doc_scores[:top_k]
         
@@ -148,7 +159,13 @@ class VSMModel:
     
     
     def fit(self, inverted_index_path: str, verbose: bool = True):
-       
+        """
+        Initialise le modèle VSM
+        
+        Args:
+            inverted_index_path: Chemin vers l'inverted index
+            verbose: Afficher les détails
+        """
         if verbose:
             print("\n" + "="*80)
             print("INITIALISATION DU MODÈLE VSM")
@@ -164,64 +181,99 @@ class VSMModel:
             print("="*80)
     
     
-    def search(self, query_terms: List[str], top_k: int = 10, verbose: bool = False) -> List[int]:
+    def search(self, query_terms: List[str], top_k: int = 10, 
+              verbose: bool = False, return_all: bool = False) -> List[int]:
+        """
+        Recherche les documents pertinents pour une requête
         
-        doc_scores = self.rank_documents(query_terms, top_k=top_k)
+        Args:
+            query_terms: Liste des termes de la requête
+            top_k: Nombre de documents à retourner (ignoré si return_all=True)
+            verbose: Afficher les résultats
+            return_all: Si True, retourne TOUS les documents (pour évaluation)
+        
+        Returns:
+            Liste des doc_ids classés par pertinence
+        """
+        # Obtenir tous les documents classés
+        doc_scores = self.rank_documents(query_terms, top_k=None)
         
         if verbose and doc_scores:
-            print(f"\n🔍 Top {min(top_k, len(doc_scores))} documents:")
+            display_k = min(top_k, len(doc_scores))
+            print(f"\n🔍 Top {display_k} documents:")
             print(f"{'Rang':<6} {'Doc ID':<10} {'Score':<12}")
             print("-" * 30)
-            for rank, (doc_id, score) in enumerate(doc_scores[:top_k], 1):
+            for rank, (doc_id, score) in enumerate(doc_scores[:display_k], 1):
                 print(f"{rank:<6} {doc_id:<10} {score:.6f}")
         
-        # Retourner seulement les doc_ids
-        return [doc_id for doc_id, score in doc_scores]
+        # Extraire les doc_ids
+        ranked_list = [doc_id for doc_id, score in doc_scores]
+        
+        # Limiter seulement si demandé ET pas return_all
+        if top_k and not return_all:
+            ranked_list = ranked_list[:top_k]
+        
+        return ranked_list
 
 
 # ============================================================================
-# TEST SUR TOUTES LES REQUÊTES MED.QRY
+# ÉVALUATION COMPLÈTE AVEC METRICS.PY
 # ============================================================================
 
 if __name__ == "__main__":
     
-    from medline_parser import parse_med_qry
+    # Ajouter le dossier src et evaluation au path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(current_dir)
+    src_dir = os.path.join(project_dir, 'src')
+    eval_dir = os.path.join(project_dir, 'evaluation')
+    sys.path.insert(0, src_dir)
+    sys.path.insert(0, eval_dir)
+    
+    from medline_parser import parse_med_qry, parse_med_rel
     from preprocessing import MEDLINEPreprocessor
+    from metrics import IRMetrics
     
     # Chemins
-    INVERTED_INDEX_PATH = r"C:\Users\pc\Desktop\RI_Project\data\output\inverted_index.txt"
-    MED_QRY_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.QRY"
+    INVERTED_INDEX_PATH = os.path.join(project_dir, "data", "ouput", "inverted_index.txt")
+    MED_QRY_PATH = os.path.join(project_dir, "data", "MED.QRY")
+    MED_REL_PATH = os.path.join(project_dir, "data", "MED.REL")
     
     # Vérifier les fichiers
-    if not os.path.exists(INVERTED_INDEX_PATH):
-        print(f"❌ ERREUR: Fichier non trouvé: {INVERTED_INDEX_PATH}")
-        print("\n💡 Assurez-vous d'avoir exécuté preprocessing.py pour générer l'inverted index")
-        exit(1)
+    for path, name in [(INVERTED_INDEX_PATH, "Inverted Index"),
+                       (MED_QRY_PATH, "MED.QRY"),
+                       (MED_REL_PATH, "MED.REL")]:
+        if not os.path.exists(path):
+            print(f"❌ ERREUR: Fichier non trouvé: {path}")
+            exit(1)
     
-    if not os.path.exists(MED_QRY_PATH):
-        print(f"❌ ERREUR: Fichier non trouvé: {MED_QRY_PATH}")
-        exit(1)
-    
-    # Créer et charger le modèle
     print("="*80)
-    print("TEST DU MODÈLE VSM SUR TOUTES LES REQUÊTES MED.QRY")
+    print("ÉVALUATION COMPLÈTE DU MODÈLE VSM (Cosine Similarity)")
     print("="*80)
     
+    # 1. Créer et charger le modèle
+    print("\n📚 Étape 1: Initialisation du modèle VSM")
     vsm = VSMModel()
     vsm.fit(INVERTED_INDEX_PATH, verbose=True)
     
-    # Charger les requêtes
-    print("\n📄 Chargement des requêtes...")
+    # 2. Charger les données
+    print("\n📄 Étape 2: Chargement des données")
     queries = parse_med_qry(MED_QRY_PATH)
+    relevance_judgments = parse_med_rel(MED_REL_PATH)
     print(f"✅ {len(queries)} requêtes chargées")
+    print(f"✅ {len(relevance_judgments)} jugements de pertinence chargés")
     
-    # Créer le preprocessor
+    # 3. Créer le preprocessor
     preprocessor = MEDLINEPreprocessor()
     
-    # Tester chaque requête
-    print("\n" + "="*80)
-    print("TRAITEMENT DES REQUÊTES")
-    print("="*80)
+    # 4. Initialiser le système de métriques
+    print("\n📊 Étape 3: Initialisation du système d'évaluation")
+    metrics = IRMetrics(relevance_judgments, model_name="VSM_Cosine")
+    
+    # 5. Collecter tous les résultats
+    print("\n🔍 Étape 4: Traitement de toutes les requêtes")
+    results_per_query = {}
+    relevance_scores_per_query = {}
     
     for query in queries:
         query_id = query.query_id
@@ -230,18 +282,56 @@ if __name__ == "__main__":
         # Preprocesser la requête
         query_terms = preprocessor.preprocess_text(query_text)
         
-        print(f"\n{'='*80}")
-        print(f"📝 Requête {query_id}")
-        print(f"{'='*80}")
-        print(f"Texte: {query_text[:100]}...")
-        print(f"Termes preprocessés: {query_terms[:10]}...")
+        # ✅ CRITICAL: Obtenir TOUS les documents classés (pas de limitation top_k)
+        doc_scores = vsm.rank_documents(query_terms, top_k=None)
         
-        # Rechercher les documents
-        results = vsm.search(query_terms, top_k=10, verbose=True)
+        # Extraire les doc_ids et les scores
+        ranked_list = [doc_id for doc_id, score in doc_scores]
+        scores_dict = {doc_id: score for doc_id, score in doc_scores}
         
-        if not results:
-            print("⚠️  Aucun résultat trouvé pour cette requête")
+        results_per_query[query_id] = ranked_list
+        relevance_scores_per_query[query_id] = scores_dict
+        
+        print(f"   Requête {query_id}: {len(ranked_list)} documents classés")
+    
+    # 6. Évaluer le système complet
+    print("\n📈 Étape 5: Évaluation complète du système")
+    all_results = metrics.evaluate_all_queries(
+        results_per_query=results_per_query,
+        relevance_scores_per_query=relevance_scores_per_query,  # Pour DCG/nDCG
+        plot_curves=True,
+        save_results=True,
+        verbose=False  # Mettre True pour voir les détails de chaque requête
+    )
     
     print("\n" + "="*80)
-    print("✅ TEST TERMINÉ SUR TOUTES LES REQUÊTES")
+    print("✅ ÉVALUATION TERMINÉE")
     print("="*80)
+    print(f"📁 Résultats sauvegardés:")
+    print(f"   - results/VSM_Cosine_results.txt")
+    print(f"   - results/figures/VSM_Cosine/")
+    print("="*80)
+    
+    # 7. Afficher un exemple détaillé (Requête 1)
+    print("\n" + "="*80)
+    print("📊 EXEMPLE DÉTAILLÉ - REQUÊTE 1")
+    print("="*80)
+    
+    query_1 = queries[0]
+    query_terms = preprocessor.preprocess_text(query_1.text)
+    
+    print(f"\nTexte: {query_1.text[:80]}...")
+    print(f"Termes: {' '.join(query_terms[:10])}...")
+    
+    # Afficher le top 20 avec détails
+    doc_scores = vsm.rank_documents(query_terms, top_k=20)
+    relevant_docs = set(relevance_judgments.get(1, []))
+    
+    print(f"\n{'Rang':<6} {'Doc ID':<10} {'Cosine Similarity':<20} {'Pertinent':<12}")
+    print("-" * 60)
+    
+    for rank, (doc_id, score) in enumerate(doc_scores, 1):
+        is_relevant = "✓" if doc_id in relevant_docs else "✗"
+        print(f"{rank:<6} {doc_id:<10} {score:<20.6f} {is_relevant:<12}")
+    
+    print("\n" + "="*80)

@@ -1,13 +1,18 @@
 import numpy as np
 from collections import defaultdict
 import os
+import sys
 from typing import List, Dict, Tuple
 
 
 class LSIModel:
-  
+    """Latent Semantic Indexing (LSI) Model"""
+    
     def __init__(self, k: int = 100):
-        
+        """
+        Args:
+            k: Nombre de dimensions latentes (réduction de dimensionnalité)
+        """
         self.k = k
         
         # Vocabulaire et documents
@@ -33,7 +38,7 @@ class LSIModel:
     
     
     def load_inverted_index(self, filepath: str, verbose: bool = True):
-        
+        """Charge l'inverted index et construit la matrice TF-IDF"""
         if verbose:
             print("\n" + "="*80)
             print("ÉTAPE 1: CHARGEMENT DE L'INVERTED INDEX")
@@ -54,7 +59,7 @@ class LSIModel:
                 parts = line.split()
                 if len(parts) >= 4:
                     term = parts[0]
-                    doc_id = int(parts[1])  # Convertir en int pour tri
+                    doc_id = int(parts[1])
                     weight = float(parts[3])  # TF-IDF weight
                     
                     term_doc_weights[term][doc_id] = weight
@@ -91,7 +96,7 @@ class LSIModel:
     
     
     def apply_svd(self, verbose: bool = True):
-       
+        """Applique la décomposition SVD sur la matrice TF-IDF"""
         if verbose:
             print("\n" + "="*80)
             print("ÉTAPE 2: DÉCOMPOSITION SVD")
@@ -118,7 +123,7 @@ class LSIModel:
     
     
     def reduce_dimensionality(self, verbose: bool = True):
-        
+        """Réduit la dimensionnalité à k dimensions"""
         if verbose:
             print("\n" + "="*80)
             print(f"ÉTAPE 3: RÉDUCTION À k={self.k} DIMENSIONS")
@@ -135,11 +140,11 @@ class LSIModel:
             print(f"   - Sk:  {self.Sk.shape}")
             print(f"   - VTk: {self.VTk.shape}")
         
-        # Calculer la matrice de projection M = Uk @ Sk^-1 
+        # Calculer la matrice de projection M = Uk @ Sk^-1
         Sk_inv = np.linalg.inv(self.Sk)
         self.M = self.Uk @ Sk_inv
         
-     
+        # Précalculer S² @ D pour la similarité
         self.S2_D = (self.Sk @ self.Sk) @ self.VTk
         
         if verbose:
@@ -149,52 +154,66 @@ class LSIModel:
     
     
     def project_query(self, query_terms: List[str]) -> np.ndarray:
-        
+        """Projette une requête dans l'espace latent réduit"""
         # Créer le vecteur de requête dans l'espace original
         q = np.zeros(len(self.vocabulary), dtype=np.float32)
         
-        # Marquer les termes présents dans la requête (présence binaire 
+        # Marquer les termes présents dans la requête (présence binaire)
         found_terms = []
         for term in query_terms:
             if term in self.vocabulary:
                 idx = self.vocabulary.index(term)
-                q[idx] = 1.0 
+                q[idx] = 1.0
                 found_terms.append(term)
         
         if len(found_terms) == 0:
             # Aucun terme de la requête n'existe dans le vocabulaire
             return None
         
+        # Projection: q_new = q^T @ M
         q_new = q.T @ self.M  # Shape: (k,)
         
         return q_new
     
     
     def calculate_similarity(self, q_new: np.ndarray) -> np.ndarray:
-        
-       
+        """Calcule les similarités entre la requête projetée et tous les documents"""
+        # Similarité: sim = q_new @ (S² @ D)
         sim = q_new @ self.S2_D
         
         return sim
     
     
     def rank_documents(self, query_terms: List[str], top_k: int = None) -> List[Tuple[int, float]]:
+        """
+        Classe tous les documents pour une requête
         
+        Args:
+            query_terms: Liste des termes de la requête
+            top_k: Si spécifié, limite le nombre de résultats (pour affichage)
+                   Si None, retourne TOUS les documents (requis pour évaluation)
+        
+        Returns:
+            Liste de tuples (doc_id, score) triée par score décroissant
+        """
+        # Projeter la requête
         q_new = self.project_query(query_terms)
         
         if q_new is None:
-            # Aucun terme trouvé, retourner liste vide
-            return []
+            # Aucun terme trouvé, retourner tous les docs avec score 0
+            return [(doc_id, 0.0) for doc_id in self.doc_ids]
         
+        # Calculer les similarités
         similarities = self.calculate_similarity(q_new)
         
         # Créer la liste (doc_id, score)
-        doc_scores = [(self.doc_ids[i], similarities[i]) for i in range(len(self.doc_ids))]
+        doc_scores = [(self.doc_ids[i], float(similarities[i])) 
+                     for i in range(len(self.doc_ids))]
         
         # Trier par score décroissant
         doc_scores.sort(key=lambda x: x[1], reverse=True)
         
-        # Retourner top_k si spécifié
+        # Retourner top_k si spécifié (pour affichage uniquement)
         if top_k is not None:
             doc_scores = doc_scores[:top_k]
         
@@ -202,13 +221,18 @@ class LSIModel:
     
     
     def fit(self, inverted_index_path: str, verbose: bool = True):
+        """
+        Entraîne le modèle LSI
         
+        Args:
+            inverted_index_path: Chemin vers l'inverted index
+            verbose: Afficher les détails
+        """
         if verbose:
             print("\n" + "="*80)
             print("ENTRAÎNEMENT DU MODÈLE LSI")
             print("="*80)
             print(f"Paramètre k: {self.k}")
-            print(f"Formules utilisées: CODE 2")
         
         # Étape 1: Charger l'inverted index
         self.load_inverted_index(inverted_index_path, verbose)
@@ -225,64 +249,98 @@ class LSIModel:
             print("="*80)
     
     
-    def search(self, query_terms: List[str], top_k: int = 10, verbose: bool = False) -> List[int]:
-       
-        doc_scores = self.rank_documents(query_terms, top_k=top_k)
+    def search(self, query_terms: List[str], top_k: int = 10, 
+              verbose: bool = False, return_all: bool = False) -> List[int]:
+        """
+        Recherche les documents pertinents pour une requête
+        
+        Args:
+            query_terms: Liste des termes de la requête
+            top_k: Nombre de documents à retourner (ignoré si return_all=True)
+            verbose: Afficher les résultats
+            return_all: Si True, retourne TOUS les documents (pour évaluation)
+        
+        Returns:
+            Liste des doc_ids classés par pertinence
+        """
+        # Obtenir tous les documents classés
+        doc_scores = self.rank_documents(query_terms, top_k=None)
         
         if verbose and doc_scores:
-            print(f"\n🔍 Top {min(top_k, len(doc_scores))} documents:")
+            display_k = min(top_k, len(doc_scores))
+            print(f"\n🔍 Top {display_k} documents:")
             print(f"{'Rang':<6} {'Doc ID':<10} {'Score':<12}")
             print("-" * 30)
-            for rank, (doc_id, score) in enumerate(doc_scores[:top_k], 1):
+            for rank, (doc_id, score) in enumerate(doc_scores[:display_k], 1):
                 print(f"{rank:<6} {doc_id:<10} {score:.6f}")
         
-        # Retourner seulement les doc_ids
-        return [doc_id for doc_id, score in doc_scores]
+        # Extraire les doc_ids
+        ranked_list = [doc_id for doc_id, score in doc_scores]
+        
+        # Limiter seulement si demandé ET pas return_all
+        if top_k and not return_all:
+            ranked_list = ranked_list[:top_k]
+        
+        return ranked_list
 
 
 # ============================================================================
-# TEST SUR TOUTES LES REQUÊTES MED.QRY
+# ÉVALUATION COMPLÈTE AVEC METRICS.PY
 # ============================================================================
 
 if __name__ == "__main__":
     
-    from medline_parser import parse_med_qry
+    # Ajouter le dossier src au path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(current_dir)
+    src_dir = os.path.join(project_dir, 'src')
+    eval_dir = os.path.join(project_dir, 'evaluation')
+    sys.path.insert(0, src_dir)
+    sys.path.insert(0, eval_dir)
+    
+    from medline_parser import parse_med_qry, parse_med_rel
     from preprocessing import MEDLINEPreprocessor
+    from metrics import IRMetrics
     
     # Chemins
-    INVERTED_INDEX_PATH = r"C:\Users\pc\Desktop\RI_Project\data\output\inverted_index.txt"
-    MED_QRY_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.QRY"
+    INVERTED_INDEX_PATH = os.path.join(project_dir, "data", "ouput", "inverted_index.txt")
+    MED_QRY_PATH = os.path.join(project_dir, "data", "MED.QRY")
+    MED_REL_PATH = os.path.join(project_dir, "data", "MED.REL")
     
     # Vérifier les fichiers
-    if not os.path.exists(INVERTED_INDEX_PATH):
-        print(f"❌ ERREUR: Fichier non trouvé: {INVERTED_INDEX_PATH}")
-        print("\n💡 Assurez-vous d'avoir exécuté preprocessing.py pour générer l'inverted index")
-        exit(1)
+    for path, name in [(INVERTED_INDEX_PATH, "Inverted Index"),
+                       (MED_QRY_PATH, "MED.QRY"),
+                       (MED_REL_PATH, "MED.REL")]:
+        if not os.path.exists(path):
+            print(f"❌ ERREUR: Fichier non trouvé: {path}")
+            exit(1)
     
-    if not os.path.exists(MED_QRY_PATH):
-        print(f"❌ ERREUR: Fichier non trouvé: {MED_QRY_PATH}")
-        exit(1)
-    
-    # Créer et entraîner le modèle
     print("="*80)
-    print("TEST DU MODÈLE LSI SUR TOUTES LES REQUÊTES MED.QRY")
+    print("ÉVALUATION COMPLÈTE DU MODÈLE LSI")
     print("="*80)
     
+    # 1. Créer et entraîner le modèle
+    print("\n📚 Étape 1: Entraînement du modèle LSI")
     lsi = LSIModel(k=100)
     lsi.fit(INVERTED_INDEX_PATH, verbose=True)
     
-    # Charger les requêtes
-    print("\n📄 Chargement des requêtes...")
+    # 2. Charger les données
+    print("\n📄 Étape 2: Chargement des données")
     queries = parse_med_qry(MED_QRY_PATH)
+    relevance_judgments = parse_med_rel(MED_REL_PATH)
     print(f"✅ {len(queries)} requêtes chargées")
+    print(f"✅ {len(relevance_judgments)} jugements de pertinence chargés")
     
-    # Créer le preprocessor
+    # 3. Créer le preprocessor
     preprocessor = MEDLINEPreprocessor()
     
-    # Tester chaque requête
-    print("\n" + "="*80)
-    print("TRAITEMENT DES REQUÊTES")
-    print("="*80)
+    # 4. Initialiser le système de métriques
+    print("\n📊 Étape 3: Initialisation du système d'évaluation")
+    metrics = IRMetrics(relevance_judgments, model_name="LSI_k100")
+    
+    # 5. Collecter tous les résultats
+    print("\n🔍 Étape 4: Traitement de toutes les requêtes")
+    results_per_query = {}
     
     for query in queries:
         query_id = query.query_id
@@ -291,18 +349,27 @@ if __name__ == "__main__":
         # Preprocesser la requête
         query_terms = preprocessor.preprocess_text(query_text)
         
-        print(f"\n{'='*80}")
-        print(f"📝 Requête {query_id}")
-        print(f"{'='*80}")
-        print(f"Texte: {query_text[:100]}...")
-        print(f"Termes preprocessés: {query_terms[:10]}...")
+        # ✅ CRITICAL: Obtenir TOUS les documents classés (pas de limitation top_k)
+        doc_scores = lsi.rank_documents(query_terms, top_k=None)
+        ranked_list = [doc_id for doc_id, score in doc_scores]
         
-        # Rechercher les documents
-        results = lsi.search(query_terms, top_k=10, verbose=True)
+        results_per_query[query_id] = ranked_list
         
-        if not results:
-            print("⚠️  Aucun résultat trouvé pour cette requête")
+        print(f"   Requête {query_id}: {len(ranked_list)} documents classés")
+    
+    # 6. Évaluer le système complet
+    print("\n📈 Étape 5: Évaluation complète du système")
+    all_results = metrics.evaluate_all_queries(
+        results_per_query=results_per_query,
+        plot_curves=True,
+        save_results=True,
+        verbose=False  # Mettre True pour voir les détails de chaque requête
+    )
     
     print("\n" + "="*80)
-    print("✅ TEST TERMINÉ SUR TOUTES LES REQUÊTES")
+    print("✅ ÉVALUATION TERMINÉE")
+    print("="*80)
+    print(f"📁 Résultats sauvegardés:")
+    print(f"   - results/LSI_k100_results.txt")
+    print(f"   - results/figures/LSI_k100/")
     print("="*80)
