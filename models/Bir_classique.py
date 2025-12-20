@@ -1,16 +1,4 @@
-"""
-BIR Classique (Binary Independence Retrieval) pour MEDLINE
-===========================================================
 
-Modèle BIR classique de Robertson & Sparck Jones:
-- BIR SANS données d'apprentissage
-- BIR AVEC données d'apprentissage (relevance feedback)
-
-Intégration avec le système d'évaluation metrics.py
-
-Auteur: LAB5 - IR Systems Evaluation
-Date: Décembre 2024
-"""
 
 import math
 import os
