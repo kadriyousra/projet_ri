@@ -314,10 +314,10 @@ if __name__ == "__main__":
     
     print("🚀 PARSER MEDLINE - Exemple d'utilisation\n")
     
-    # Chemins vers les fichiers (à adapter selon votre structure)
-    MED_ALL_PATH = "data/MED.ALL"
-    MED_QRY_PATH = "data/MED.QRY"
-    MED_REL_PATH = "data/MED.REL"
+   
+    MED_ALL_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.ALL"
+    MED_QRY_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.QRY"
+    MED_REL_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.REL"
     
     # Parser les documents
     print("📄 Parsing des documents...")
