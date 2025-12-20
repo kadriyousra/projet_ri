@@ -421,9 +421,9 @@ if __name__ == "__main__":
     print("🚀 MEDLINE PREPROCESSING - Exemple d'utilisation\n")
     
     # Chemins 
-    MED_ALL_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.ALL"
-    MED_QRY_PATH = r"C:\Users\pc\Desktop\RI_Project\data\MED.QRY"
-    OUTPUT_DIR = r"C:\Users\pc\Desktop\RI_Project\output"
+    MED_ALL_PATH = r"data\MED.ALL"
+    MED_QRY_PATH = r"data\MED.QRY"
+    OUTPUT_DIR = r"output"
     
     # Parser les données
     print("📄 Parsing des données MEDLINE...")
