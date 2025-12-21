@@ -315,7 +315,7 @@ if __name__ == "__main__":
         # Preprocesser la requête
         query_terms = preprocessor.preprocess_text(query_text)
         
-        # ✅ CRITICAL: Obtenir TOUS les documents classés
+        # Obtenir TOUS les documents classés
         doc_scores = lm_jm.rank_documents(query_terms, top_k=None)
         
         # Extraire les doc_ids et les scores
@@ -334,7 +334,7 @@ if __name__ == "__main__":
         relevance_scores_per_query=relevance_scores_per_query,
         plot_curves=True,
         save_results=True,
-        verbose=False
+        verbose=True  # ✅ CHANGEMENT: verbose=True pour sauvegarder les métriques globales
     )
     
     print("\n" + "="*80)
@@ -344,53 +344,3 @@ if __name__ == "__main__":
     print(f"   - results/LM_JelinekMercer_02_results.txt")
     print(f"   - results/figures/LM_JelinekMercer_02/")
     print("="*80)
-    
-    # 7. Afficher un exemple détaillé (Requête 1)
-    print("\n" + "="*80)
-    print("📊 EXEMPLE DÉTAILLÉ - REQUÊTE 1")
-    print("="*80)
-    
-    query_1 = queries[0]
-    query_terms = preprocessor.preprocess_text(query_1.text)
-    
-    print(f"\nTexte: {query_1.text[:80]}...")
-    print(f"Termes: {' '.join(query_terms[:10])}...")
-    
-    # Afficher le top 20 avec détails
-    doc_scores = lm_jm.rank_documents(query_terms, top_k=20)
-    relevant_docs = set(relevance_judgments.get(1, []))
-    
-    print(f"\n{'Rang':<6} {'Doc ID':<10} {'RSV Score':<20} {'Pertinent':<12}")
-    print("-" * 60)
-    
-    for rank, (doc_id, score) in enumerate(doc_scores, 1):
-        is_relevant = "✓" if doc_id in relevant_docs else "✗"
-        print(f"{rank:<6} {doc_id:<10} {score:<20.10f} {is_relevant:<12}")
-    
-    # Afficher les probabilités détaillées pour le premier document
-    if doc_scores:
-        print(f"\n" + "="*80)
-        print(f"DÉTAIL DES PROBABILITÉS - Document {doc_scores[0][0]}")
-        print("="*80)
-        doc_id = doc_scores[0][0]
-        doc_length = lm_jm.doc_lengths[doc_id]
-        
-        print(f"\nLongueur du document |d| = {doc_length}")
-        print(f"Taille de la collection |C| = {lm_jm.collection_size}")
-        print(f"Paramètre λ = {lm_jm.lambda_param}")
-        
-        print(f"\nProbabilités pour chaque terme de la requête:")
-        print(f"{'Terme':<15} {'freq(d)':<10} {'P_MLE(d)':<15} {'freq(C)':<10} {'P_MLE(C)':<15} {'P_JM':<15}")
-        print("-" * 90)
-        
-        for term in query_terms[:5]:  # Afficher les 5 premiers termes
-            freq_d = lm_jm.get_term_freq(term, doc_id)
-            p_mle_d = lm_jm.calculate_p_mle_doc(term, doc_id)
-            freq_c = lm_jm.collection_freq.get(term, 0)
-            p_mle_c = lm_jm.calculate_p_mle_collection(term)
-            p_jm = lm_jm.calculate_p_jm(term, doc_id)
-            
-            print(f"{term:<15} {freq_d:<10} {p_mle_d:<15.6f} {freq_c:<10} {p_mle_c:<15.6f} {p_jm:<15.6f}")
-    
-    
-    print("\n" + "="*80)

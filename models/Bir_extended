@@ -291,12 +291,19 @@ if __name__ == "__main__":
     # 3. Créer le preprocessor
     preprocessor = MEDLINEPreprocessor()
     
+    # ========================================================================
+    # SANS APPRENTISSAGE
+    # ========================================================================
+    print("\n" + "="*80)
+    print("🔍 ÉVALUATION - BIR ÉTENDU SANS APPRENTISSAGE")
+    print("="*80)
+    
     # 4. Initialiser le système de métriques (SANS apprentissage)
-    print("\n📊 Étape 3: Initialisation du système d'évaluation (SANS apprentissage)")
+    print("\n📊 Étape 3: Initialisation du système d'évaluation")
     metrics_without = IRMetrics(relevance_judgments, model_name="BIR_Extended_Sans_Apprentissage")
     
     # 5. Collecter tous les résultats SANS apprentissage
-    print("\n🔍 Étape 4: Traitement de toutes les requêtes (SANS apprentissage)")
+    print("\n🔍 Étape 4: Traitement de toutes les requêtes")
     results_without = {}
     scores_without = {}
     
@@ -307,7 +314,7 @@ if __name__ == "__main__":
         # Preprocesser la requête
         query_terms = preprocessor.preprocess_text(query_text)
         
-        # ✅ CRITICAL: Obtenir TOUS les documents classés
+        # Obtenir TOUS les documents classés
         doc_scores = bir_ext.rank_documents(query_terms, relevant_docs=None, top_k=None)
         
         # Extraire les doc_ids et les scores
@@ -320,21 +327,28 @@ if __name__ == "__main__":
         print(f"   Requête {query_id}: {len(ranked_list)} documents classés")
     
     # 6. Évaluer le système complet SANS apprentissage
-    print("\n📈 Étape 5: Évaluation complète (SANS apprentissage)")
+    print("\n📈 Étape 5: Évaluation complète")
     all_results_without = metrics_without.evaluate_all_queries(
         results_per_query=results_without,
         relevance_scores_per_query=scores_without,
         plot_curves=True,
         save_results=True,
-        verbose=False
+        verbose=True  # ✅ CHANGEMENT CRITIQUE: verbose=True
     )
     
+    # ========================================================================
+    # AVEC APPRENTISSAGE
+    # ========================================================================
+    print("\n" + "="*80)
+    print("🔍 ÉVALUATION - BIR ÉTENDU AVEC APPRENTISSAGE")
+    print("="*80)
+    
     # 7. Initialiser le système de métriques (AVEC apprentissage)
-    print("\n📊 Étape 6: Initialisation pour BIR Étendu AVEC apprentissage")
+    print("\n📊 Étape 6: Initialisation du système d'évaluation")
     metrics_with = IRMetrics(relevance_judgments, model_name="BIR_Extended_Avec_Apprentissage")
     
     # 8. Collecter tous les résultats AVEC apprentissage
-    print("\n🔍 Étape 7: Traitement de toutes les requêtes (AVEC apprentissage)")
+    print("\n🔍 Étape 7: Traitement de toutes les requêtes")
     results_with = {}
     scores_with = {}
     
@@ -348,7 +362,7 @@ if __name__ == "__main__":
         # Obtenir les documents pertinents
         relevant_docs = relevance_judgments.get(query_id, [])
         
-        # ✅ CRITICAL: Obtenir TOUS les documents classés AVEC apprentissage
+        # Obtenir TOUS les documents classés AVEC apprentissage
         doc_scores = bir_ext.rank_documents(query_terms, relevant_docs=relevant_docs, top_k=None)
         
         # Extraire les doc_ids et les scores
@@ -361,13 +375,13 @@ if __name__ == "__main__":
         print(f"   Requête {query_id}: {len(ranked_list)} documents classés (R={len(relevant_docs)})")
     
     # 9. Évaluer le système complet AVEC apprentissage
-    print("\n📈 Étape 8: Évaluation complète (AVEC apprentissage)")
+    print("\n📈 Étape 8: Évaluation complète")
     all_results_with = metrics_with.evaluate_all_queries(
         results_per_query=results_with,
         relevance_scores_per_query=scores_with,
         plot_curves=True,
         save_results=True,
-        verbose=False
+        verbose=True  # ✅ CHANGEMENT CRITIQUE: verbose=True
     )
     
     print("\n" + "="*80)
@@ -380,7 +394,9 @@ if __name__ == "__main__":
     print(f"   - results/figures/BIR_Extended_Avec_Apprentissage/")
     print("="*80)
     
-    # 10. Afficher un exemple détaillé (Requête 1)
+    # ========================================================================
+    # EXEMPLE DÉTAILLÉ
+    # ========================================================================
     print("\n" + "="*80)
     print("📊 EXEMPLE DÉTAILLÉ - REQUÊTE 1")
     print("="*80)

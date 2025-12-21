@@ -514,6 +514,37 @@ class IRMetrics:
             f.write(f"RÉSULTATS {self.model_name} - ÉVALUATION COMPLÈTE\n")
             f.write("="*120 + "\n\n")
             
+            # Calculer MAP et MAP interpolée
+            map_score = sum(r['average_precision'] for r in all_results.values()) / len(all_results) if all_results else 0.0
+            map_interpolated = sum(r['average_precision_interpolated'] for r in all_results.values()) / len(all_results) if all_results else 0.0
+            
+            # Calculer les autres moyennes
+            mean_p5 = sum(r['p_at_5'] for r in all_results.values()) / len(all_results) if all_results else 0.0
+            mean_p10 = sum(r['p_at_10'] for r in all_results.values()) / len(all_results) if all_results else 0.0
+            mean_r_prec = sum(r['r_precision'] for r in all_results.values()) / len(all_results) if all_results else 0.0
+            mean_rr = sum(r['reciprocal_rank'] for r in all_results.values()) / len(all_results) if all_results else 0.0
+            
+            # Vérifier si DCG/nDCG sont disponibles
+            has_dcg = 'dcg_at_20' in list(all_results.values())[0] if all_results else False
+            if has_dcg:
+                mean_dcg = sum(r['dcg_at_20'] for r in all_results.values()) / len(all_results)
+                mean_ndcg = sum(r['ndcg_at_20'] for r in all_results.values()) / len(all_results)
+            
+            # Afficher les métriques globales en haut
+            f.write("="*120 + "\n")
+            f.write("📈 MÉTRIQUES GLOBALES MOYENNES\n")
+            f.write("="*120 + "\n")
+            f.write(f"MAP (Mean Average Precision):        {map_score:.4f}\n")
+            f.write(f"MAP Interpolée:                      {map_interpolated:.4f}\n")
+            f.write(f"Mean P@5:                            {mean_p5:.4f}\n")
+            f.write(f"Mean P@10:                           {mean_p10:.4f}\n")
+            f.write(f"Mean R-Precision:                    {mean_r_prec:.4f}\n")
+            f.write(f"MRR (Mean Reciprocal Rank):          {mean_rr:.4f}\n")
+            if has_dcg:
+                f.write(f"Mean DCG@20:                         {mean_dcg:.4f}\n")
+                f.write(f"Mean nDCG@20:                        {mean_ndcg:.4f}\n")
+            f.write("="*120 + "\n\n")
+            
             for query_id in sorted(all_results.keys()):
                 result = all_results[query_id]
                 

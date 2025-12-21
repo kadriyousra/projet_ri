@@ -290,7 +290,7 @@ class LSIModel:
 
 if __name__ == "__main__":
     
-    # Ajouter le dossier src au path
+    # Ajouter le dossier src et evaluation au path
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(current_dir)
     src_dir = os.path.join(project_dir, 'src')
@@ -341,6 +341,7 @@ if __name__ == "__main__":
     # 5. Collecter tous les résultats
     print("\n🔍 Étape 4: Traitement de toutes les requêtes")
     results_per_query = {}
+    relevance_scores_per_query = {}
     
     for query in queries:
         query_id = query.query_id
@@ -351,9 +352,13 @@ if __name__ == "__main__":
         
         # ✅ CRITICAL: Obtenir TOUS les documents classés (pas de limitation top_k)
         doc_scores = lsi.rank_documents(query_terms, top_k=None)
+        
+        # Extraire les doc_ids et les scores
         ranked_list = [doc_id for doc_id, score in doc_scores]
+        scores_dict = {doc_id: score for doc_id, score in doc_scores}
         
         results_per_query[query_id] = ranked_list
+        relevance_scores_per_query[query_id] = scores_dict
         
         print(f"   Requête {query_id}: {len(ranked_list)} documents classés")
     
@@ -361,6 +366,7 @@ if __name__ == "__main__":
     print("\n📈 Étape 5: Évaluation complète du système")
     all_results = metrics.evaluate_all_queries(
         results_per_query=results_per_query,
+        relevance_scores_per_query=relevance_scores_per_query,  # Pour DCG/nDCG
         plot_curves=True,
         save_results=True,
         verbose=False  # Mettre True pour voir les détails de chaque requête

@@ -1,5 +1,3 @@
-
-
 import math
 import os
 import sys
@@ -302,10 +300,10 @@ if __name__ == "__main__":
     print("\n📈 Étape 5: Évaluation complète (SANS apprentissage)")
     all_results_without = metrics_without.evaluate_all_queries(
         results_per_query=results_without,
-        relevance_scores_per_query=scores_without,  # Pour DCG/nDCG
+        relevance_scores_per_query=scores_without,
         plot_curves=True,
         save_results=True,
-        verbose=False  # Mettre True pour voir les détails de chaque requête
+        verbose=False
     )
     
     # 7. Initialiser le système de métriques (AVEC apprentissage)
@@ -343,7 +341,7 @@ if __name__ == "__main__":
     print("\n📈 Étape 8: Évaluation complète (AVEC apprentissage)")
     all_results_with = metrics_with.evaluate_all_queries(
         results_per_query=results_with,
-        relevance_scores_per_query=scores_with,  # Pour DCG/nDCG
+        relevance_scores_per_query=scores_with,
         plot_curves=True,
         save_results=True,
         verbose=False
@@ -375,28 +373,28 @@ if __name__ == "__main__":
     print("BIR SANS APPRENTISSAGE")
     print("="*80)
     doc_scores = bir.rank_documents(query_terms, relevant_docs=None, top_k=20)
-    relevant_docs = set(relevance_judgments.get(1, []))
+    relevant_docs_set = set(relevance_judgments.get(1, []))
     
     print(f"\n{'Rang':<6} {'Doc ID':<10} {'RSV Score':<15} {'Pertinent':<12}")
     print("-" * 50)
     
     for rank, (doc_id, score) in enumerate(doc_scores, 1):
-        is_relevant = "✓" if doc_id in relevant_docs else "✗"
+        is_relevant = "✓" if doc_id in relevant_docs_set else "✗"
         print(f"{rank:<6} {doc_id:<10} {score:<15.6f} {is_relevant:<12}")
     
     # AVEC apprentissage
     print(f"\n{'='*80}")
     print("BIR AVEC APPRENTISSAGE")
     print("="*80)
-    print(f"Documents pertinents utilisés: {list(relevant_docs)[:10]}...")
+    print(f"Documents pertinents utilisés: {list(relevant_docs_set)[:10]}...")
     
-    doc_scores_with = bir.rank_documents(query_terms, relevant_docs=list(relevant_docs), top_k=20)
+    doc_scores_with = bir.rank_documents(query_terms, relevant_docs=list(relevant_docs_set), top_k=20)
     
     print(f"\n{'Rang':<6} {'Doc ID':<10} {'RSV Score':<15} {'Pertinent':<12}")
     print("-" * 50)
     
     for rank, (doc_id, score) in enumerate(doc_scores_with, 1):
-        is_relevant = "✓" if doc_id in relevant_docs else "✗"
+        is_relevant = "✓" if doc_id in relevant_docs_set else "✗"
         print(f"{rank:<6} {doc_id:<10} {score:<15.6f} {is_relevant:<12}")
     
     print("\n" + "="*80)
