@@ -294,13 +294,15 @@ class PairwiseGainCalculator:
         
         print("\n" + "-"*150)
         print("📈 ANALYSE:")
+
+        # Seuil de 5% pour déterminer si la différence est significative
+        SEUIL = 5.0
         
-        if mean_gain > 0:
+        if mean_gain >= SEUIL:
             print(f"   ✅ {model_a} est MEILLEUR que {model_b} (+{mean_gain:.2f}%)")
-        elif mean_gain < 0:
+        elif mean_gain < SEUIL:
             print(f"   ❌ {model_a} est MOINS BON que {model_b} ({mean_gain:.2f}%)")
-        else:
-            print(f"   ⚖️  Performances équivalentes")
+        
         
         wins_a = sum(1 for qid in query_ids if self.calculate_gain(model_a, model_b, qid) > 0)
         wins_b = sum(1 for qid in query_ids if self.calculate_gain(model_a, model_b, qid) < 0)
@@ -329,7 +331,7 @@ class PairwiseGainCalculator:
         
         print("="*150 + "\n")
     
-    def save_all_results(self, output_dir: str = "results", query_ids: List[int] = None):
+    def save_all_results(self, output_dir: str = "results/gainAp", query_ids: List[int] = None):
         """Sauvegarde les résultats"""
         if query_ids is None:
             query_ids = list(range(1, 11))
@@ -399,7 +401,7 @@ def pairwise_analysis_from_files(results_dir: str = None, query_ids: List[int] =
     calc = PairwiseGainCalculator(ap_data)
     calc.print_pairwise_matrix(query_ids)
     calc.print_top_differences(query_ids, top_n=15)
-    calc.save_all_results(output_dir=results_dir if results_dir else "results", query_ids=query_ids)
+    calc.save_all_results(output_dir="results/gainAp", query_ids=query_ids)
     
     return calc
 
