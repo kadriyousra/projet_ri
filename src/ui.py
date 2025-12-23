@@ -876,7 +876,252 @@ if st.session_state.evaluation_results is not None:
         )
         st.plotly_chart(fig3, use_container_width=True)
 
+    # =============================================================================
+# PAIRWISE COMPARISON SECTION (Ajouter après la section DISPLAY RESULTS)
+# =============================================================================
+
+st.markdown("---")
+st.markdown("### ⚖️ Pairwise Model Comparison")
+
+# Import pairwise gain modules
+try:
+    import sys
+    pairwise_dir = PROJECT_ROOT / "evaluation"
+    if str(pairwise_dir) not in sys.path:
+        sys.path.insert(0, str(pairwise_dir))
+    
+    from pairwise_gain_ap import PairwiseGainCalculator as PairwiseAP, load_all_results as load_ap
+    from pairwise_gain_dcg import PairwiseGainCalculator as PairwiseDCG, load_all_results as load_dcg
+    from pairwise_gain_dcg_normalized import PairwiseGainCalculator as PairwiseNDCG, load_all_results as load_ndcg
+    
+    PAIRWISE_OK = True
+except Exception as e:
+    st.warning(f"⚠️ Pairwise comparison not available: {e}")
+    PAIRWISE_OK = False
+
+if PAIRWISE_OK:
+    st.info("📊 Compare two models using Average Precision (AP), DCG@20, or nDCG@20")
+    
+    # Load available results
+    results_dir = PROJECT_ROOT / "results"
+    
+    if results_dir.exists():
+        # Metric selection
+        comparison_metric = st.selectbox(
+            "Select comparison metric",
+            options=["Average Precision (AP)", "DCG@20", "nDCG@20"],
+            key="comparison_metric"
+        )
+        
+        # Load data based on metric
+        with st.spinner(f"Loading {comparison_metric} data..."):
+            query_ids = list(range(1, 11))  # I1-I10
+            
+            if comparison_metric == "Average Precision (AP)":
+                metric_data = load_ap(str(results_dir), query_ids)
+                calculator = PairwiseAP(metric_data) if metric_data else None
+                metric_key = "AP"
+            elif comparison_metric == "DCG@20":
+                metric_data = load_dcg(str(results_dir), query_ids)
+                calculator = PairwiseDCG(metric_data) if metric_data else None
+                metric_key = "DCG@20"
+            else:  # nDCG@20
+                metric_data = load_ndcg(str(results_dir), query_ids)
+                calculator = PairwiseNDCG(metric_data) if metric_data else None
+                metric_key = "nDCG@20"
+        
+        if calculator and metric_data:
+            available_models = sorted(metric_data.keys())
+            
+            st.success(f"✅ Loaded {len(available_models)} models for comparison")
+            
+            # Model selection
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                model_a = st.selectbox(
+                    "Select Model A",
+                    options=available_models,
+                    key="model_a_selector"
+                )
+            
+            with col2:
+                model_b = st.selectbox(
+                    "Select Model B",
+                    options=[m for m in available_models if m != model_a],
+                    key="model_b_selector"
+                )
+            
+            if st.button("🔄 Compare Models", type="primary", use_container_width=True):
+                st.markdown("---")
+                
+                # Generate comparison
+                comparison_df = calculator.generate_comparison_table(model_a, model_b, query_ids)
+                
+                # Display comparison table
+                st.markdown(f"#### 📊 Comparison: **{model_a}** vs **{model_b}**")
+                st.markdown(f"**Metric:** {comparison_metric}")
+                
+                # Style the dataframe
+                def highlight_winner(row):
+                    if row['Query'] == 'Mean':
+                        return ['background-color: #e6f3ff'] * len(row)
+                    
+                    gain = row[f'Gain {model_a} vs {model_b} (%)']
+                    
+                    if gain > 0:
+                        # Model A is better
+                        return ['', 'background-color: #90EE90', '', 'background-color: #90EE90']
+                    elif gain < 0:
+                        # Model B is better
+                        return ['', '', 'background-color: #FFB6C1', 'background-color: #FFB6C1']
+                    else:
+                        # Tie
+                        return ['', '', '', '']
+                
+                styled_comparison = comparison_df.style.apply(highlight_winner, axis=1)
+                st.dataframe(styled_comparison, use_container_width=True, height=450)
+                
+                # Analysis
+                mean_gain = calculator.calculate_mean_gain(model_a, model_b, query_ids)
+                
+                st.markdown("---")
+                st.markdown("#### 📈 Analysis")
+                
+                col_a1, col_a2, col_a3 = st.columns(3)
+                
+                with col_a1:
+                    if mean_gain > 0:
+                        st.metric(
+                            label="Winner",
+                            value=model_a,
+                            delta=f"+{mean_gain:.2f}%",
+                            delta_color="normal"
+                        )
+                    elif mean_gain < 0:
+                        st.metric(
+                            label="Winner",
+                            value=model_b,
+                            delta=f"{abs(mean_gain):.2f}%",
+                            delta_color="inverse"
+                        )
+                    else:
+                        st.metric(
+                            label="Result",
+                            value="Tie",
+                            delta="0.00%"
+                        )
+                
+                with col_a2:
+                    wins_a = sum(1 for qid in query_ids 
+                               if calculator.calculate_gain(model_a, model_b, qid) > 0)
+                    st.metric(f"{model_a} Wins", wins_a)
+                
+                with col_a3:
+                    wins_b = sum(1 for qid in query_ids 
+                               if calculator.calculate_gain(model_a, model_b, qid) < 0)
+                    st.metric(f"{model_b} Wins", wins_b)
+                
+                # Visualization
+                if PLOTLY_OK:
+                    st.markdown("---")
+                    st.markdown("#### 📉 Visual Comparison")
+                    
+                    # Bar chart comparison
+                    fig_comp = go.Figure()
+                    
+                    # Remove 'Mean' row for visualization
+                    comp_viz = comparison_df[comparison_df['Query'] != 'Mean'].copy()
+                    
+                    fig_comp.add_trace(go.Bar(
+                        name=model_a,
+                        x=comp_viz['Query'],
+                        y=comp_viz[f'{model_a} {metric_key}'],
+                        marker_color='lightblue'
+                    ))
+                    
+                    fig_comp.add_trace(go.Bar(
+                        name=model_b,
+                        x=comp_viz['Query'],
+                        y=comp_viz[f'{model_b} {metric_key}'],
+                        marker_color='lightcoral'
+                    ))
+                    
+                    fig_comp.update_layout(
+                        title=f"{metric_key} Comparison per Query",
+                        xaxis_title="Query",
+                        yaxis_title=metric_key,
+                        barmode='group',
+                        height=400
+                    )
+                    
+                    st.plotly_chart(fig_comp, use_container_width=True)
+                    
+                    # Gain chart
+                    fig_gain = go.Figure()
+                    
+                    gains = [calculator.calculate_gain(model_a, model_b, qid) 
+                            for qid in query_ids]
+                    colors = ['green' if g > 0 else 'red' if g < 0 else 'gray' 
+                             for g in gains]
+                    
+                    fig_gain.add_trace(go.Bar(
+                        x=[f'Q{qid}' for qid in query_ids],
+                        y=gains,
+                        marker_color=colors,
+                        text=[f'{g:+.2f}%' for g in gains],
+                        textposition='outside'
+                    ))
+                    
+                    fig_gain.update_layout(
+                        title=f"Gain % ({model_a} vs {model_b})",
+                        xaxis_title="Query",
+                        yaxis_title="Gain (%)",
+                        height=400,
+                        showlegend=False
+                    )
+                    
+                    fig_gain.add_hline(y=0, line_dash="dash", line_color="gray")
+                    
+                    st.plotly_chart(fig_gain, use_container_width=True)
+                
+                # Download comparison
+                csv_comparison = comparison_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Comparison (CSV)",
+                    data=csv_comparison,
+                    file_name=f"{model_a}_vs_{model_b}_{metric_key}.csv",
+                    mime="text/csv"
+                )
+                
+                # Detailed interpretation
+                with st.expander("📚 How to interpret the results"):
+                    st.markdown(f"""
+                    **Gain % Calculation:**
+                    - Gain % = ((Model A {metric_key} - Model B {metric_key}) / Model B {metric_key}) × 100
+                    
+                    **Interpretation:**
+                    - **Positive gain (+)**: Model A performs better than Model B
+                    - **Negative gain (-)**: Model B performs better than Model A
+                    - **Zero gain**: Both models perform equally
+                    
+                    **Color coding:**
+                    - 🟢 Green: Model A wins on this query
+                    - 🔴 Red: Model B wins on this query
+                    - ⚪ Gray: Tie
+                    
+                    **Mean row:**
+                    - Shows average {metric_key} and average gain across all queries
+                    - The model with higher mean {metric_key} is generally better
+                    """)
+        else:
+            st.warning("⚠️ No comparison data available. Make sure you have run evaluations and generated result files.")
+    else:
+        st.warning(f"⚠️ Results directory not found: {results_dir}")
 else:
+    st.info("ℹ️ Pairwise comparison requires pairwise_gain_*.py modules in evaluation/ folder")
+
+if st.session_state.evaluation_results is None:
     st.info("👆 Select models and click 'Run Evaluation' to see results")
 
 # =============================================================================
