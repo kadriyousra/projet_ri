@@ -876,7 +876,7 @@ if st.session_state.evaluation_results is not None:
         )
         st.plotly_chart(fig3, use_container_width=True)
 
-    # =============================================================================
+# =============================================================================
 # PAIRWISE COMPARISON SECTION (Ajouter après la section DISPLAY RESULTS)
 # =============================================================================
 
@@ -969,10 +969,10 @@ if PAIRWISE_OK:
                     
                     gain = row[f'Gain {model_a} vs {model_b} (%)']
                     
-                    if gain > 0:
+                    if gain >= 5:
                         # Model A is better
                         return ['', 'background-color: #90EE90', '', 'background-color: #90EE90']
-                    elif gain < 0:
+                    elif gain < 5:
                         # Model B is better
                         return ['', '', 'background-color: #FFB6C1', 'background-color: #FFB6C1']
                     else:
@@ -991,14 +991,14 @@ if PAIRWISE_OK:
                 col_a1, col_a2, col_a3 = st.columns(3)
                 
                 with col_a1:
-                    if mean_gain > 0:
+                    if mean_gain >= 5:
                         st.metric(
                             label="Winner",
                             value=model_a,
                             delta=f"+{mean_gain:.2f}%",
                             delta_color="normal"
                         )
-                    elif mean_gain < 0:
+                    elif mean_gain < 5:
                         st.metric(
                             label="Winner",
                             value=model_b,
@@ -1014,12 +1014,12 @@ if PAIRWISE_OK:
                 
                 with col_a2:
                     wins_a = sum(1 for qid in query_ids 
-                               if calculator.calculate_gain(model_a, model_b, qid) > 0)
+                               if calculator.calculate_gain(model_a, model_b, qid) >= 5)
                     st.metric(f"{model_a} Wins", wins_a)
                 
                 with col_a3:
                     wins_b = sum(1 for qid in query_ids 
-                               if calculator.calculate_gain(model_a, model_b, qid) < 0)
+                               if calculator.calculate_gain(model_a, model_b, qid) < 5)
                     st.metric(f"{model_b} Wins", wins_b)
                 
                 # Visualization
@@ -1101,9 +1101,8 @@ if PAIRWISE_OK:
                     - Gain % = ((Model A {metric_key} - Model B {metric_key}) / Model B {metric_key}) × 100
                     
                     **Interpretation:**
-                    - **Positive gain (+)**: Model A performs better than Model B
-                    - **Negative gain (-)**: Model B performs better than Model A
-                    - **Zero gain**: Both models perform equally
+                    - **gain (=>5%)**: Model A performs better than Model B
+                    - **gain (<5%)**: Model B performs better than Model A
                     
                     **Color coding:**
                     - 🟢 Green: Model A wins on this query
